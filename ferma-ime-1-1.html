@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Ferma Ime">
+    <meta name="theme-color" content="#1b5e20">
+    <meta name="description" content="Sistemi i Menaxhimit të Fermës - Kosovë">
+    
+    <!-- PWA Manifest inline (no server needed) -->
+    <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Ferma%20Ime%22%2C%22short_name%22%3A%22Ferma%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%231b5e20%22%2C%22theme_color%22%3A%22%231b5e20%22%7D">
+    
+    <!-- App Icon fallback -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231b5e20'/%3E%3Ctext y='.9em' font-size='80' x='10'%3E🌿%3C/text%3E%3C/svg%3E">
+    
+    <title>Ferma Ime 🌿</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    
+    <style>
+        :root {
+            --green-900: #1b4332;
+            --green-800: #1b5e20;
+            --green-700: #2e7d32;
+            --green-500: #4caf50;
+            --green-100: #e8f5e9;
+            --amber: #f59e0b;
+            --amber-dark: #d97706;
+            --red: #dc2626;
+            --blue: #0284c7;
+            --white: #ffffff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-400: #9ca3af;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow: 0 4px 16px rgba(0,0,0,0.10);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.16);
+            /* Safe areas for iPhone notch/home bar */
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-left: env(safe-area-inset-left, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        html, body {
+            width: 100%; min-height: 100vh;
+            overflow-x: hidden;
+            background: var(--gray-100);
+            font-family: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif;
+            color: var(--gray-800);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ===== INSTALL PROMPT BANNER ===== */
+        #install-banner {
+            display: none;
+            position: fixed;
+            bottom: calc(var(--safe-bottom) + 10px);
+            left: 12px; right: 12px;
+            background: var(--green-900);
+            color: white;
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            z-index: 9990;
+            box-shadow: var(--shadow-lg);
+            align-items: center;
+            gap: 12px;
+        }
+        #install-banner.show { display: flex; }
+        #install-banner p { flex: 1; font-size: 0.85rem; line-height: 1.4; }
+        #install-banner strong { display: block; font-size: 0.95rem; }
+        .btn-install { background: var(--amber); color: var(--gray-800); border: none; border-radius: 8px; padding: 8px 14px; font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
+        .btn-dismiss { background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.2rem; cursor: pointer; line-height: 1; }
+
+        /* ===== iOS INSTALL GUIDE ===== */
+        #ios-guide {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 9991;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 16px;
+        }
+        #ios-guide.show { display: flex; }
+        .ios-guide-card {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .ios-guide-card h3 { color: var(--green-800); margin-bottom: 16px; font-size: 1.1rem; }
+        .ios-step { display: flex; align-items: center; gap: 12px; text-align: left; margin-bottom: 12px; padding: 10px; background: var(--gray-50); border-radius: 8px; font-size: 0.9rem; }
+        .ios-step-num { background: var(--green-700); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0; }
+        .btn-close-guide { margin-top: 16px; width: 100%; padding: 12px; background: var(--green-700); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 1rem; cursor: pointer; }
+
+        /* ===== LOGIN ===== */
+        #login-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(160deg, var(--green-900) 0%, var(--green-700) 100%);
+            z-index: 9999;
+            padding: calc(var(--safe-top) + 20px) 20px calc(var(--safe-bottom) + 20px);
+        }
+        .login-logo { font-size: 3.5rem; margin-bottom: 8px; }
+        .login-title { color: white; font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; }
+        .login-sub { color: rgba(255,255,255,0.65); font-size: 0.9rem; margin-bottom: 32px; }
+        .login-card {
+            background: white;
+            padding: 24px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 360px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .login-card label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .login-card select, .login-card input {
+            width: 100%; padding: 14px; border: 1.5px solid var(--gray-200); border-radius: 10px;
+            font-size: 1rem; background: var(--gray-50); margin-bottom: 14px;
+            transition: border-color 0.2s;
+        }
+        .login-card select:focus, .login-card input:focus { outline: none; border-color: var(--green-500); background: white; }
+        .btn-login {
+            width: 100%; padding: 15px; background: var(--green-700); color: white; border: none;
+            border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn-login:active { background: var(--green-900); transform: scale(0.98); }
+
+        /* ===== APP SHELL ===== */
+        #app-content { display: none; width: 100%; min-height: 100vh; }
+
+        header {
+            background: linear-gradient(135deg, var(--green-900), var(--green-700));
+            color: white;
+            position: sticky; top: 0; z-index: 1000;
+            padding-top: var(--safe-top);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+        }
+        .header-top {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 16px 6px;
+        }
+        .app-title { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.3px; }
+        .user-pill {
+            display: flex; align-items: center; gap: 6px;
+            background: rgba(255,255,255,0.15);
+            padding: 5px 10px 5px 8px;
+            border-radius: 20px; font-size: 0.8rem;
+        }
+        .btn-logout {
+            background: rgba(255,255,255,0.15); border: none; color: white;
+            width: 22px; height: 22px; border-radius: 50%; font-size: 0.7rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* ===== BOTTOM TAB BAR ===== */
+        .tab-bar {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: white;
+            border-top: 1px solid var(--gray-200);
+            display: flex;
+            padding-bottom: var(--safe-bottom);
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+        }
+        .tab-btn {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 8px 4px; background: none; border: none; cursor: pointer;
+            color: var(--gray-400); font-size: 0.6rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.3px;
+            transition: color 0.2s;
+            min-height: 54px;
+        }
+        .tab-btn .tab-icon { font-size: 1.4rem; margin-bottom: 2px; line-height: 1; }
+        .tab-btn.active { color: var(--green-700); }
+        .tab-btn.active .tab-icon { transform: scale(1.1); }
+
+        /* ===== CONTENT ===== */
+        .page-content {
+            padding: 14px 14px calc(80px + var(--safe-bottom));
+            max-width: 600px; margin: 0 auto;
+        }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: white; border-radius: var(--radius); padding: 16px;
+            margin-bottom: 14px; box-shadow: var(--shadow);
+        }
+        .card h2 {
+            color: var(--green-900); margin-bottom: 14px; font-size: 1rem;
+            font-weight: 700; display: flex; align-items: center; gap: 6px;
+        }
+
+        /* ===== DASHBOARD STATS ===== */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+        .stat-box {
+            background: white; padding: 14px 12px; border-radius: var(--radius);
+            box-shadow: var(--shadow); text-align: center; position: relative; overflow: hidden;
+        }
+        .stat-box::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: var(--green-500);
+        }
+        .stat-box.red::before { background: var(--red); }
+        .stat-box.blue::before { background: var(--blue); }
+        .stat-box.amber::before { background: var(--amber); }
+        .stat-label { font-size: 0.7rem; color: var(--gray-400); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+        .stat-value { font-size: 1.05rem; font-weight: 800; margin-top: 5px; color: var(--gray-800); }
+        .stat-value.green { color: var(--green-700); }
+        .stat-value.red { color: var(--red); }
+
+        /* ===== FORMS ===== */
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 0.78rem; font-weight: 700; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 13px 14px; border: 1.5px solid var(--gray-200); border-radius: var(--radius-sm);
+            font-size: 1rem; background: var(--gray-50); color: var(--gray-800);
+            transition: border-color 0.2s, background 0.2s;
+            -webkit-appearance: none; appearance: none;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none; border-color: var(--green-500); background: white;
+        }
+        .form-group textarea { resize: none; height: 80px; font-family: inherit; }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            width: 100%; padding: 14px; background: var(--green-700); color: white;
+            border: none; border-radius: var(--radius-sm); font-size: 1rem; font-weight: 700;
+            cursor: pointer; transition: background 0.2s, transform 0.1s;
+            margin-top: 4px;
+        }
+        .btn:active { background: var(--green-900); transform: scale(0.98); }
+        .btn.secondary { background: var(--blue); }
+        .btn.danger { background: var(--red); margin-top: 8px; }
+
+        /* ===== FILTER CHIPS ===== */
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+        .chip {
+            padding: 7px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 700;
+            background: var(--gray-100); color: var(--gray-600); border: none; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .chip.active { background: var(--green-700); color: white; }
+
+        /* ===== TABLE ===== */
+        .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius-sm); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+        thead th { background: var(--gray-50); color: var(--gray-600); padding: 10px 10px; text-align: left; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+        tbody td { padding: 11px 10px; border-bottom: 1px solid var(--gray-100); color: var(--gray-800); vertical-align: middle; }
+        tbody tr:last-child td { border-bottom: none; }
+        .badge { background: var(--green-100); color: var(--green-800); padding: 3px 8px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+        .badge.msh { background: #fef3c7; color: #92400e; }
+        .badge.vic { background: #dbeafe; color: #1e40af; }
+        .badge.mzat { background: #fce7f3; color: #9d174d; }
+        .text-green { color: var(--green-700); font-weight: 700; }
+        .text-red { color: var(--red); font-weight: 700; }
+        .del-btn { background: none; border: none; color: var(--red); cursor: pointer; font-size: 1.1rem; padding: 4px; }
+
+        /* ===== SCANNER ===== */
+        #lexuesi-kamere { width: 100%; border-radius: var(--radius-sm); overflow: hidden; background: #000; margin-bottom: 10px; }
+        #lexuesi-kamere video { width: 100% !important; height: auto !important; object-fit: cover; }
+        .scan-result {
+            background: var(--green-100); border-left: 4px solid var(--green-700);
+            padding: 14px; border-radius: var(--radius-sm); margin-top: 12px;
+        }
+        .scan-result h3 { color: var(--green-900); margin-bottom: 10px; font-size: 0.95rem; }
+        .scan-result p { font-size: 0.88rem; color: var(--gray-600); margin-bottom: 4px; }
+        .scan-result p strong { color: var(--gray-800); }
+        .scan-error { background: #fee2e2; border-left: 4px solid var(--red); padding: 14px; border-radius: var(--radius-sm); margin-top: 12px; color: var(--red); font-weight: 700; font-size: 0.9rem; }
+
+        /* ===== CHART ===== */
+        .chart-wrap { position: relative; height: 200px; width: 100%; }
+
+        /* ===== EMPTY STATE ===== */
+        .empty { text-align: center; padding: 30px 20px; color: var(--gray-400); }
+        .empty-icon { font-size: 2.5rem; margin-bottom: 8px; }
+        .empty p { font-size: 0.88rem; }
+    </style>
+</head>
+<body>
+
+<!-- iOS Install Guide -->
+<div id="ios-guide">
+    <div class="ios-guide-card">
+        <h3>📲 Instalo si App në iPhone</h3>
+        <div class="ios-step"><div class="ios-step-num">1</div><span>Shtyp butonin <strong>Shpërnda</strong> (⬆️) në fund të Safari</span></div>
+        <div class="ios-step"><div class="ios-step-num">2</div><span>Zgjidh <strong>"Shto në Ekranin Kryesor"</strong></span></div>
+        <div class="ios-step"><div class="ios-step-num">3</div><span>Shtyp <strong>"Shto"</strong> — gati! Hapet si app e vërtetë</span></div>
+        <button class="btn-close-guide" onclick="document.getElementById('ios-guide').classList.remove('show')">E kuptova, Faleminderit!</button>
+    </div>
+</div>
+
+<!-- Android Install Banner -->
+<div id="install-banner">
+    <p><strong>Instalo Ferma Ime</strong>Shto në ekranin kryesor si app</p>
+    <button class="btn-install" id="btn-install-pwa">Instalo</button>
+    <button class="btn-dismiss" onclick="document.getElementById('install-banner').classList.remove('show')">✕</button>
+</div>
+
+<!-- LOGIN -->
+<div id="login-container">
+    <div class="login-logo">🌿</div>
+    <div class="login-title">Ferma Ime</div>
+    <div class="login-sub">Sistemi i Menaxhimit · Kosovë</div>
+    
+    <div class="login-card">
+        <div class="form-group">
+            <label>Zgjidh Përdoruesin</label>
+            <select id="login-emri">
+                <option value="Bujar">👨‍🌾 Bujar</option>
+                <option value="Hamdi">👨‍🌾 Hamdi</option>
+                <option value="Agron">👨‍🌾 Agron</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Fjalëkalimi (PIN)</label>
+            <input type="password" id="login-pass" placeholder="Shkruaj PIN-in..." inputmode="numeric" maxlength="6">
+        </div>
+        <button class="btn-login" onclick="verifikoLogin()">Kyçu në Program →</button>
+    </div>
+</div>
+
+<!-- APP -->
+<div id="app-content">
+    <header>
+        <div class="header-top">
+            <div class="app-title">🌿 Ferma Ime</div>
+            <div class="user-pill">
+                <span id="emri-kycur">Përdorues</span>
+                <button class="btn-logout" onclick="bëjLogout()" title="Dil">✕</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="page-content">
+
+        <!-- BALLINA -->
+        <div id="seksioni-ballina" class="section active">
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-label">🐄 Lopë / Msh</div>
+                    <div class="stat-value" id="stat-lope-msh">0 / 0</div>
+                </div>
+                <div class="stat-box blue">
+                    <div class="stat-label">🐮 Viça / Mzat</div>
+                    <div class="stat-value" id="stat-vic-mzat">0 / 0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">🥛 Qumësht Sot</div>
+                    <div class="stat-value green" id="stat-qumeshti">0 L</div>
+                </div>
+                <div class="stat-box amber">
+                    <div class="stat-label">📊 Bilanci (Muaj)</div>
+                    <div class="stat-value" id="stat-bilanci">0.00 €</div>
+                </div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-label">💰 Fitimet</div>
+                    <div class="stat-value green" id="stat-fitimi">0.00 €</div>
+                </div>
+                <div class="stat-box red">
+                    <div class="stat-label">💸 Harxhimet</div>
+                    <div class="stat-value red" id="stat-harxhimet">0.00 €</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📊 Financat Mujore</h2>
+                <div class="chart-wrap"><canvas id="chartMujor"></canvas></div>
+            </div>
+            <div class="card">
+                <h2>📈 Trendi Vjetor</h2>
+                <div class="chart-wrap"><canvas id="chartVjetor"></canvas></div>
+            </div>
+        </div>
+
+        <!-- KAFSHËT -->
+        <div id="seksioni-regjistri" class="section">
+            <div class="card">
+                <h2>➕ Regjistro Kafshë</h2>
+                <div class="form-group">
+                    <label>Kategoria</label>
+                    <select id="kafshe-kategoria">
+                        <option value="Lopë">🐄 Lopë</option>
+                        <option value="Mështjerrë">🐂 Mështjerrë</option>
+                        <option value="Viç">🐮 Viç</option>
+                        <option value="Mzat">🐃 Mzat</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Emri / Numri i Matricës</label>
+                    <input type="text" id="kafshe-emri" placeholder="Psh. 123456 ose Lulja">
+                </div>
+                <div class="form-group">
+                    <label>Pesha (KG)</label>
+                    <input type="number" id="kafshe-pesha" placeholder="Psh. 450" inputmode="decimal">
+                </div>
+                <button class="btn" onclick="shtoKafshe()">✅ Regjistro në Sistem</button>
+            </div>
+
+            <div class="card">
+                <h2>📋 Lista e Kafshëve</h2>
+                <div class="chips">
+                    <button class="chip active" onclick="filtroKafghet('Te Gjitha', this)">Të Gjitha</button>
+                    <button class="chip" onclick="filtroKafghet('Lopë', this)">🐄 Lopët</button>
+                    <button class="chip" onclick="filtroKafghet('Mështjerrë', this)">🐂 Mështj.</button>
+                    <button class="chip" onclick="filtroKafghet('Viç', this)">🐮 Viçat</button>
+                    <button class="chip" onclick="filtroKafghet('Mzat', this)">🐃 Mzat</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Kategoria</th><th>Emri</th><th>KG</th><th></th></tr></thead>
+                        <tbody id="tabela-kafshët"></tbody>
+                    </table>
+                </div>
+                <div id="empty-kafshët" class="empty" style="display:none;">
+                    <div class="empty-icon">🐄</div>
+                    <p>Nuk ka kafshë të regjistruara</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SKANER -->
+        <div id="seksioni-skaner" class="section">
+            <div class="card">
+                <h2>📸 Skaner Barkodi</h2>
+                <p style="font-size:0.82rem; color:var(--gray-400); margin-bottom:12px;">Afrojeni kamerën tek barkodi i matricës së kafshës.</p>
+                <div id="lexuesi-kamere"></div>
+                <button class="btn secondary" onclick="ndezKameren()">📷 Hap / Rifillo Kamerën</button>
+                <button class="btn danger" onclick="ndalKameren()">⏹ Mbyll Kamerën</button>
+                <div id="rezultati-skanit" style="display:none;" class="scan-result">
+                    <h3>✅ Kafshë e Gjetur!</h3>
+                    <p><strong>Kategoria:</strong> <span id="skan-kategoria">-</span></p>
+                    <p><strong>Emri / Kodi:</strong> <span id="skan-emri">-</span></p>
+                    <p><strong>Pesha:</strong> <span id="skan-pesha">-</span> KG</p>
+                    <div class="form-group" style="margin-top:12px;">
+                        <label>Historiku / Shënime Shëndetësore</label>
+                        <textarea id="skan-historiku" placeholder="Vaksinat, mjekimet, orenditë..."></textarea>
+                    </div>
+                    <button class="btn" onclick="ruajHistorikSkanuar()">💾 Ruaj Historikun</button>
+                </div>
+                <div id="kod-jo-ekzistues" style="display:none;" class="scan-error">⚠️ Ky barkod nuk ekziston në sistem!</div>
+            </div>
+        </div>
+
+        <!-- QUMËSHTI -->
+        <div id="seksioni-qumeshti" class="section">
+            <div class="card">
+                <h2>🥛 Regjistro Qumështin</h2>
+                <div class="form-group">
+                    <label>Zgjidh Lopën</label>
+                    <select id="qumesht-lopa"></select>
+                </div>
+                <div class="form-group">
+                    <label>Sasia (Litra)</label>
+                    <input type="number" id="qumesht-sasia" placeholder="Psh. 20" inputmode="decimal">
+                </div>
+                <div class="form-group">
+                    <label>Lloji</label>
+                    <select id="qumesht-lloji">
+                        <option value="Hyrje (Mjelje)">📥 Hyrje (Mjelje)</option>
+                        <option value="Dalje (Shitje/Konsum)">📤 Dalje (Shitje/Konsum)</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="shtoQumesht()">✅ Regjistro</button>
+            </div>
+            <div class="card">
+                <h2>📋 Historiku i Qumështit</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Lopa</th><th>Sasia</th><th>Lloji</th></tr></thead>
+                        <tbody id="tabela-qumeshti"></tbody>
+                    </table>
+                </div>
+                <div id="empty-qumeshti" class="empty" style="display:none;"><div class="empty-icon">🥛</div><p>Nuk ka regjistrime</p></div>
+            </div>
+        </div>
+
+        <!-- FINANCAT -->
+        <div id="seksioni-financat" class="section">
+            <div class="card">
+                <h2>💰 Regjistro Transaksion</h2>
+                <div class="form-group">
+                    <label>Përshkrimi</label>
+                    <input type="text" id="financat-pershkrimi" placeholder="Psh. Ushqim, Ilaçe, Shitje qumësht...">
+                </div>
+                <div class="form-group">
+                    <label>Shuma (€)</label>
+                    <input type="number" step="0.01" id="financat-shuma" placeholder="0.00" inputmode="decimal">
+                </div>
+                <div class="form-group">
+                    <label>Lloji</label>
+                    <select id="financat-lloji">
+                        <option value="Fitim">💰 Fitim (+)</option>
+                        <option value="Harxhim">💸 Harxhim (-)</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="shtoFinance()">✅ Regjistro</button>
+            </div>
+            <div class="card">
+                <h2>📋 Transaksionet e Fundit</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Përshkrimi</th><th>Shuma</th><th>Lloji</th></tr></thead>
+                        <tbody id="tabela-financat"></tbody>
+                    </table>
+                </div>
+                <div id="empty-financat" class="empty" style="display:none;"><div class="empty-icon">💰</div><p>Nuk ka transaksione</p></div>
+            </div>
+        </div>
+
+    </div><!-- /page-content -->
+
+    <!-- BOTTOM TAB BAR -->
+    <nav class="tab-bar">
+        <button class="tab-btn active" id="nav-ballina" onclick="ndrroSeksion('ballina')">
+            <span class="tab-icon">🏠</span>Ballina
+        </button>
+        <button class="tab-btn" id="nav-regjistri" onclick="ndrroSeksion('regjistri')">
+            <span class="tab-icon">🐄</span>Kafshët
+        </button>
+        <button class="tab-btn" id="nav-skaner" onclick="ndrroSeksion('skaner')">
+            <span class="tab-icon">📸</span>Skaneri
+        </button>
+        <button class="tab-btn" id="nav-qumeshti" onclick="ndrroSeksion('qumeshti')">
+            <span class="tab-icon">🥛</span>Qumështi
+        </button>
+        <button class="tab-btn" id="nav-financat" onclick="ndrroSeksion('financat')">
+            <span class="tab-icon">💰</span>Financat
+        </button>
+    </nav>
+</div>
+
+<script>
+// ===== STATE =====
+let kafshët = [], qumeshti = [], financat = [];
+let filtriAktual = 'Te Gjitha';
+let chartM, chartV;
+let html5QrcodeScanner = null;
+let kafshaAktualeSkanuarIndex = null;
+let deferredPrompt = null;
+
+// ===== PWA INSTALL =====
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('install-banner').classList.add('show');
+});
+
+document.getElementById('btn-install-pwa').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('install-banner').classList.remove('show');
+});
+
+// iOS Detection
+function isIOS() {
+    return /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase()) && !window.MSStream;
+}
+function isInStandaloneMode() {
+    return ('standalone' in window.navigator) && window.navigator.standalone;
+}
+
+// ===== LOGIN =====
+function verifikoLogin() {
+    const emri = document.getElementById('login-emri').value;
+    const pass = document.getElementById('login-pass').value;
+    if (pass === "1234") {
+        localStorage.setItem('user_kycur', emri);
+        shfaqProgramin(emri);
+    } else {
+        document.getElementById('login-pass').style.borderColor = 'var(--red)';
+        setTimeout(() => document.getElementById('login-pass').style.borderColor = '', 1500);
+        alert("❌ Fjalëkalimi i gabuar!");
+    }
+}
+
+document.getElementById('login-pass').addEventListener('keypress', e => { if(e.key === 'Enter') verifikoLogin(); });
+
+function shfaqProgramin(emri) {
+    document.getElementById('login-container').style.display = 'none';
+    document.getElementById('app-content').style.display = 'block';
+    document.getElementById('emri-kycur').innerText = emri;
+    document.getElementById('login-pass').value = '';
+    ngarkoTeDhenat();
+    rifreskoTe();
+    inicializoDiagramet();
+    
+    // Show iOS install guide if applicable
+    if (isIOS() && !isInStandaloneMode()) {
+        setTimeout(() => document.getElementById('ios-guide').classList.add('show'), 3000);
+    }
+}
+
+function bëjLogout() {
+    ndalKameren();
+    localStorage.removeItem('user_kycur');
+    document.getElementById('app-content').style.display = 'none';
+    document.getElementById('login-container').style.display = 'flex';
+}
+
+function kontrolloLoginStatus() {
+    const u = localStorage.getItem('user_kycur');
+    if (u) shfaqProgramin(u);
+}
+
+// ===== DATA =====
+function ngarkoTeDhenat() {
+    try {
+        kafshët = JSON.parse(localStorage.getItem('kafshët')) || [];
+        qumeshti = JSON.parse(localStorage.getItem('qumeshti')) || [];
+        financat = JSON.parse(localStorage.getItem('financat')) || [];
+    } catch(e) { kafshët = []; qumeshti = []; financat = []; }
+}
+
+function ruaj() {
+    try {
+        localStorage.setItem('kafshët', JSON.stringify(kafshët));
+        localStorage.setItem('qumeshti', JSON.stringify(qumeshti));
+        localStorage.setItem('financat', JSON.stringify(financat));
+    } catch(e) { alert("⚠️ Memoria e plotë! Fshi të dhëna të vjetra."); }
+}
+
+function rifreskoTe() {
+    rifreskoKafshët();
+    rifreskoQumesht();
+    rifreskoFinancat();
+}
+
+// ===== NAVIGATION =====
+function ndrroSeksion(id) {
+    if (id !== 'skaner') ndalKameren();
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('seksioni-' + id).classList.add('active');
+    document.getElementById('nav-' + id).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (id === 'ballina') rifreskoDiagramet();
+}
+
+// ===== SCANNER =====
+function ndezKameren() {
+    document.getElementById('rezultati-skanit').style.display = 'none';
+    document.getElementById('kod-jo-ekzistues').style.display = 'none';
+    if (!html5QrcodeScanner) html5QrcodeScanner = new Html5Qrcode("lexuesi-kamere");
+    
+    const config = {
+        fps: 15,
+        qrbox: (w, h) => {
+            let s = Math.floor(Math.min(w, h) * 0.7);
+            return { width: Math.max(s, 180), height: Math.floor(Math.max(s, 180) * 0.55) };
+        }
+    };
+    html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+        .catch(() => alert("⚠️ Gabim: Jepni leje kamerës në cilësimet e telefonit!"));
+}
+
+function ndalKameren() {
+    if (html5QrcodeScanner?.isScanning) {
+        html5QrcodeScanner.stop().catch(() => {});
+    }
+}
+
+function onScanSuccess(decodedText) {
+    if (navigator.vibrate) navigator.vibrate(80);
+    const kod = decodedText.trim();
+    const idx = kafshët.findIndex(k => k.emri.trim() === kod);
+    kafshaAktualeSkanuarIndex = idx >= 0 ? idx : null;
+    
+    if (idx >= 0) {
+        const k = kafshët[idx];
+        document.getElementById('skan-kategoria').innerText = k.kategoria;
+        document.getElementById('skan-emri').innerText = k.emri;
+        document.getElementById('skan-pesha').innerText = k.pesha;
+        document.getElementById('skan-historiku').value = k.historiku || '';
+        document.getElementById('rezultati-skanit').style.display = 'block';
+        document.getElementById('kod-jo-ekzistues').style.display = 'none';
+    } else {
+        document.getElementById('rezultati-skanit').style.display = 'none';
+        document.getElementById('kod-jo-ekzistues').style.display = 'block';
+    }
+}
+
+function ruajHistorikSkanuar() {
+    if (kafshaAktualeSkanuarIndex !== null) {
+        kafshët[kafshaAktualeSkanuarIndex].historiku = document.getElementById('skan-historiku').value;
+        ruaj();
+        alert("✅ Historiku u ruajt!");
+    }
+}
+
+// ===== KAFSHËT =====
+function shtoKafshe() {
+    const kategoria = document.getElementById('kafshe-kategoria').value;
+    const emri = document.getElementById('kafshe-emri').value.trim();
+    const pesha = document.getElementById('kafshe-pesha').value;
+    if (!emri || !pesha) return alert("⚠️ Plotësoni të gjitha fushat!");
+    kafshët.push({ kategoria, emri, pesha: parseFloat(pesha), historiku: '' });
+    ruaj();
+    document.getElementById('kafshe-emri').value = '';
+    document.getElementById('kafshe-pesha').value = '';
+    rifreskoKafshët();
+}
+
+function fshiKafshe(index) {
+    if (confirm(`Fshij ${kafshët[index].emri}?`)) {
+        kafshët.splice(index, 1);
+        ruaj();
+        rifreskoKafshët();
+    }
+}
+
+function filtroKafghet(kat, btn) {
+    filtriAktual = kat;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    rifreskoKafshët();
+}
+
+function getBadgeClass(kat) {
+    if (kat === 'Mështjerrë') return 'badge msh';
+    if (kat === 'Viç') return 'badge vic';
+    if (kat === 'Mzat') return 'badge mzat';
+    return 'badge';
+}
+
+function rifreskoKafshët() {
+    const tBody = document.getElementById('tabela-kafshët');
+    const selectLopa = document.getElementById('qumesht-lopa');
+    tBody.innerHTML = '';
+    selectLopa.innerHTML = '';
+    let nLope = 0, nMsh = 0, nVic = 0, nMzat = 0;
+    let shown = 0;
+
+    kafshët.forEach((k, i) => {
+        if (k.kategoria === 'Lopë') { nLope++; selectLopa.innerHTML += `<option value="${k.emri}">${k.emri}</option>`; }
+        if (k.kategoria === 'Mështjerrë') nMsh++;
+        if (k.kategoria === 'Viç') nVic++;
+        if (k.kategoria === 'Mzat') nMzat++;
+
+        if (filtriAktual === 'Te Gjitha' || filtriAktual === k.kategoria) {
+            shown++;
+            tBody.innerHTML += `<tr>
+                <td><span class="${getBadgeClass(k.kategoria)}">${k.kategoria}</span></td>
+                <td><strong>${k.emri}</strong></td>
+                <td>${k.pesha}</td>
+                <td><button class="del-btn" onclick="fshiKafshe(${i})">🗑</button></td>
+            </tr>`;
+        }
+    });
+
+    document.getElementById('empty-kafshët').style.display = shown === 0 ? 'block' : 'none';
+    document.getElementById('stat-lope-msh').innerText = `${nLope} / ${nMsh}`;
+    document.getElementById('stat-vic-mzat').innerText = `${nVic} / ${nMzat}`;
+}
+
+// ===== QUMËSHTI =====
+function shtoQumesht() {
+    const lopa = document.getElementById('qumesht-lopa').value;
+    const sasia = parseFloat(document.getElementById('qumesht-sasia').value);
+    const lloji = document.getElementById('qumesht-lloji').value;
+    if (!lopa || !sasia) return alert("⚠️ Plotësoni sasinë!");
+    qumeshti.push({ lopa, sasia, lloji });
+    ruaj();
+    document.getElementById('qumesht-sasia').value = '';
+    rifreskoQumesht();
+}
+
+function rifreskoQumesht() {
+    const tBody = document.getElementById('tabela-qumeshti');
+    tBody.innerHTML = '';
+    let tot = 0;
+    const list = qumeshti.slice().reverse();
+    list.forEach(q => {
+        const k = q.lloji.includes('Hyrje') ? 'text-green' : 'text-red';
+        tBody.innerHTML += `<tr><td>${q.lopa}</td><td>${q.sasia} L</td><td class="${k}">${q.lloji}</td></tr>`;
+        if (q.lloji.includes('Hyrje')) tot += q.sasia;
+    });
+    document.getElementById('stat-qumeshti').innerText = tot + " L";
+    document.getElementById('empty-qumeshti').style.display = list.length === 0 ? 'block' : 'none';
+}
+
+// ===== FINANCAT =====
+function shtoFinance() {
+    const pershkrimi = document.getElementById('financat-pershkrimi').value.trim();
+    const shuma = parseFloat(document.getElementById('financat-shuma').value);
+    const lloji = document.getElementById('financat-lloji').value;
+    if (!pershkrimi || !shuma) return alert("⚠️ Plotësoni fushat!");
+    financat.push({ pershkrimi, shuma, lloji });
+    ruaj();
+    document.getElementById('financat-pershkrimi').value = '';
+    document.getElementById('financat-shuma').value = '';
+    rifreskoFinancat();
+}
+
+function rifreskoFinancat() {
+    const tBody = document.getElementById('tabela-financat');
+    tBody.innerHTML = '';
+    let totF = 0, totH = 0;
+    const list = financat.slice().reverse();
+    list.forEach(f => {
+        const isF = f.lloji === 'Fitim';
+        tBody.innerHTML += `<tr>
+            <td>${f.pershkrimi}</td>
+            <td class="${isF ? 'text-green' : 'text-red'}">${isF ? '+' : '-'}${f.shuma.toFixed(2)} €</td>
+            <td>${f.lloji}</td>
+        </tr>`;
+        if (isF) totF += f.shuma; else totH += f.shuma;
+    });
+    document.getElementById('stat-fitimi').innerText = totF.toFixed(2) + " €";
+    document.getElementById('stat-harxhimet').innerText = totH.toFixed(2) + " €";
+    const bilanci = totF - totH;
+    const el = document.getElementById('stat-bilanci');
+    el.innerText = (bilanci >= 0 ? '+' : '') + bilanci.toFixed(2) + " €";
+    el.className = 'stat-value ' + (bilanci >= 0 ? 'green' : 'red');
+    document.getElementById('empty-financat').style.display = list.length === 0 ? 'block' : 'none';
+}
+
+// ===== CHARTS =====
+function inicializoDiagramet() {
+    const gridColor = 'rgba(0,0,0,0.06)';
+    const fontConfig = { family: '-apple-system, sans-serif', size: 11 };
+    const baseOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { font: fontConfig, boxWidth: 12 } } } };
+
+    if (chartM) chartM.destroy();
+    chartM = new Chart(document.getElementById('chartMujor').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: ['Javë 1', 'Javë 2', 'Javë 3', 'Javë 4'],
+            datasets: [
+                { label: 'Fitime (€)', data: [150, 220, 180, 340], backgroundColor: '#4caf50', borderRadius: 6 },
+                { label: 'Harxhime (€)', data: [60, 90, 50, 110], backgroundColor: '#dc2626', borderRadius: 6 }
+            ]
+        },
+        options: { ...baseOpts, scales: { x: { grid: { display: false } }, y: { grid: { color: gridColor }, ticks: { font: fontConfig } } } }
+    });
+
+    if (chartV) chartV.destroy();
+    chartV = new Chart(document.getElementById('chartVjetor').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: ['Jan', 'Shk', 'Mar', 'Pri', 'Maj', 'Qer'],
+            datasets: [{ label: 'Fitimi (€)', data: [600, 750, 680, 950, 1300, 1650], borderColor: '#0284c7', backgroundColor: 'rgba(2,132,199,0.1)', fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#0284c7' }]
+        },
+        options: { ...baseOpts, scales: { x: { grid: { display: false } }, y: { grid: { color: gridColor }, ticks: { font: fontConfig } } } }
+    });
+}
+
+function rifreskoDiagramet() {
+    chartM?.update();
+    chartV?.update();
+}
+
+// ===== SAVE ON EXIT =====
+window.addEventListener('pagehide', ruaj);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') ruaj(); });
+
+// ===== INIT =====
+window.onload = () => kontrolloLoginStatus();
+</script>
+
+</body>
+</html>
